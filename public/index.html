@@ -14,6 +14,7 @@
 </head>
 <body>
     <h3>PIONEER_OS [v2.0.6] // CORE: GPT-OSS-120B</h3>
+    
     <div id="terminal"><div>[SYS] System initialized. Waiting for command...</div></div>
     
     <div class="input-box">
@@ -22,9 +23,7 @@
     </div>
 
     <script>
-        // 1. LINK TO YOUR APP IDENTITY
-        puter.setAppKey('app-ef8b285f-22db-406a-872e-eb912abac8d2');
-
+        // 2. Initialize variables after the HTML elements exist
         const terminal = document.getElementById('terminal');
 
         function addToTerminal(text, role = "sys") {
@@ -33,6 +32,14 @@
             terminal.appendChild(div);
             terminal.scrollTop = terminal.scrollHeight;
             return div;
+        }
+
+        // 3. Modern Puter 2026 App Identification
+        // If setAppKey fails, Puter.js v2 often uses the appID property directly
+        try {
+            puter.appID = 'app-ef8b285f-22db-406a-872e-eb912abac8d2';
+        } catch(e) {
+            console.log("AppID setting deferred");
         }
 
         async function runPioneer() {
@@ -44,22 +51,23 @@
             addToTerminal(query, "user");
 
             try {
-                // A. Fetch Search Data from your Python API
+                // A. Check if the user is signed in (Fixes the 401 error)
+                if (!await puter.auth.isSignedIn()) {
+                    addToTerminal("AUTHENTICATION REQUIRED. PLEASE SIGN IN...", "sys");
+                    await puter.auth.signIn();
+                    addToTerminal("SIGN-IN SUCCESSFUL.", "sys");
+                }
+
+                // B. Fetch Search Data from your Python API
                 addToTerminal("SCRAPING WEB DATA...", "sys");
                 const searchRes = await fetch(`/api/chat?q=${encodeURIComponent(query)}`);
                 const searchData = await searchRes.json();
                 
-                // B. Check Puter Auth
-                if (!await puter.auth.isSignedIn()) {
-                    addToTerminal("AUTH REQUIRED. OPENING POPUP...", "sys");
-                    await puter.auth.signIn();
-                }
-
                 // C. Engage 120B Brain
                 addToTerminal("ENGAGING 120B REASONING...", "sys");
                 const response = await puter.ai.chat(
-                    `Use this web context: ${searchData.context}\n\nUser Question: ${query}`, 
-                    { model: 'openai/gpt-oss-120b', stream: true }
+                    `Context: ${searchData.context}\n\nQuestion: ${query}`, 
+                    { model: 'gpt-oss-120b', stream: true }
                 );
 
                 let replyDiv = addToTerminal("", "pioneer");
@@ -69,6 +77,7 @@
                 }
             } catch (err) {
                 addToTerminal(`CRITICAL_FAIL: ${err.message}`, "error");
+                console.error(err);
             }
         }
     </script>
