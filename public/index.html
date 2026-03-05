@@ -2,52 +2,76 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>PioneerX Sanctuary</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PioneerX Sanctuary | 120B Reasoning</title>
     <script src="https://js.puter.com/v2/"></script>
     <style>
-        /* Your existing CSS here */
-        body { font-family: sans-serif; background: #1a1a1a; color: white; padding: 20px; }
-        #chat-box { border: 1px solid #444; height: 300px; overflow-y: scroll; margin-bottom: 10px; padding: 10px; }
+        body { background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; margin: 0; padding: 20px; }
+        #terminal { border: 1px solid #00ff41; height: 70vh; overflow-y: auto; padding: 20px; background: rgba(0, 0, 0, 0.9); box-shadow: 0 0 15px #00ff41; }
+        .input-area { margin-top: 20px; display: flex; }
+        input { flex-grow: 1; background: transparent; border: 1px solid #00ff41; color: #00ff41; padding: 10px; font-family: inherit; }
+        button { background: #00ff41; color: #000; border: none; padding: 10px 20px; margin-left: 10px; cursor: pointer; font-weight: bold; }
+        .log-meta { color: #888; font-size: 0.8em; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <h2>PioneerX Intelligent AI (GPT-OSS 120B)</h2>
-    <div id="chat-box"></div>
-    <input type="text" id="user-input" placeholder="Ask anything...">
-    <button onclick="askPioneer()">Send</button>
+    <div class="log-meta">SYSTEM_STATUS: ONLINE // MODEL: GPT-OSS-120B // PIONEER_AUTH: ACTIVE</div>
+    <div id="terminal">
+        <div>[SYSTEM] Welcome, Pioneer. Intelligence engine initialized.</div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="user-input" placeholder="Enter command or query..." onkeypress="if(event.key==='Enter') runPioneer()">
+        <button onclick="runPioneer()">EXECUTE</button>
+    </div>
 
     <script>
-        async function askPioneer() {
-            const query = document.getElementById('user-input').value;
-            const chatBox = document.getElementById('chat-box');
-            chatBox.innerHTML += `<div><b>You:</b> ${query}</div>`;
+        // 1. LINK TO YOUR PUTER APP IDENTITY
+        puter.setAppKey('app-ef8b285f-22db-406a-872e-eb912abac8d2');
 
-            // STEP A: Fetch Live Web Data from your FastAPI backend
-            chatBox.innerHTML += `<div><i>Pioneer is searching the web...</i></div>`;
-            const searchResponse = await fetch(`/api/chat?q=${encodeURIComponent(query)}`);
-            const searchData = await searchResponse.json();
-            const webContext = searchData.context || "No recent data found.";
+        const terminal = document.getElementById('terminal');
 
-            // STEP B: Use Puter.js for the Direct 120B Connection
-            chatBox.innerHTML += `<div><i>120B Brain is thinking...</i></div>`;
-            
+        function log(msg, type = "info") {
+            const div = document.createElement('div');
+            div.innerHTML = type === "user" ? `> USER: ${msg}` : `[${type.toUpperCase()}] ${msg}`;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
+            return div;
+        }
+
+        async function runPioneer() {
+            const inputField = document.getElementById('user-input');
+            const query = inputField.value;
+            if (!query) return;
+
+            inputField.value = '';
+            log(query, "user");
+
+            // STEP A: Fetch Web Context from your Vercel API
+            log("INITIATING WEB SCRAPE...", "sys");
             try {
+                const searchRes = await fetch(`/api/chat?q=${encodeURIComponent(query)}`);
+                const searchData = await searchRes.json();
+                const context = searchData.context || "No local data found.";
+
+                // STEP B: Call the 120B Brain
+                log("ENGAGING 120B REASONING CORE...", "sys");
+                
                 const response = await puter.ai.chat(
-                    `Use this web context: ${webContext}\n\nUser Question: ${query}`,
-                    { model: 'gpt-oss-120b', stream: true } // Zero-latency streaming!
+                    `Web Context: ${context}\n\nQuery: ${query}`, 
+                    { model: 'gpt-oss-120b', stream: true }
                 );
 
-                let aiReply = "";
-                const replyDiv = document.createElement('div');
-                replyDiv.innerHTML = "<b>Pioneer:</b> ";
-                chatBox.appendChild(replyDiv);
+                const replyDiv = log("", "pioneer");
+                let fullText = "<b>PIONEER:</b> ";
 
                 for await (const part of response) {
-                    aiReply += part.text;
-                    replyDiv.innerHTML = `<b>Pioneer:</b> ${aiReply}`;
+                    fullText += part.text;
+                    replyDiv.innerHTML = fullText;
+                    terminal.scrollTop = terminal.scrollHeight;
                 }
             } catch (err) {
-                replyDiv.innerHTML = "Error: Puter connection failed.";
+                log(`CRITICAL_ERROR: ${err.message}`, "fail");
             }
         }
     </script>
