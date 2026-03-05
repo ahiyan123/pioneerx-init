@@ -2,39 +2,45 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>PioneerX Sanctuary | 120B Core</title>
+    <title>PioneerX Sanctuary | Memory-Enabled 120B</title>
     <script src="https://js.puter.com/v2/"></script>
     <style>
         body { background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; padding: 20px; margin: 0; }
-        #terminal { border: 1px solid #00ff41; height: 70vh; overflow-y: auto; padding: 20px; background: #000; margin-bottom: 20px; box-shadow: 0 0 15px #00ff41; }
-        .input-box { display: flex; gap: 10px; }
-        input { flex-grow: 1; background: #000; border: 1px solid #00ff41; color: #00ff41; padding: 12px; font-family: inherit; }
-        button { background: #00ff41; color: #000; border: none; padding: 10px 25px; font-weight: bold; cursor: pointer; }
-        .pioneer-text { color: #fff; text-shadow: 0 0 5px #00ff41; }
+        #terminal { border: 1px solid #00ff41; height: 75vh; overflow-y: auto; padding: 20px; background: #000; box-shadow: 0 0 15px #00ff41; position: relative; }
+        .input-area { display: flex; margin-top: 15px; gap: 10px; }
+        input { flex-grow: 1; background: transparent; border: 1px solid #00ff41; color: #00ff41; padding: 12px; font-family: inherit; outline: none; }
+        button { background: #00ff41; color: #000; border: none; padding: 0 25px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #fff; }
+        .pioneer-text { color: #fff; text-shadow: 0 0 5px #00ff41; border-left: 2px solid #00ff41; padding-left: 10px; margin: 10px 0; }
     </style>
 </head>
 <body>
-    <div style="font-size: 0.8em; opacity: 0.7;">PIONEER_STATION // ID: app-ef8b285f...</div>
-    <div id="terminal"><div>[SYS] PioneerX Sanctuary Online. Awaiting command...</div></div>
+    <div style="font-size: 0.8em; opacity: 0.6; margin-bottom: 5px;">PIONEER_OS [v2.1.0] // MEMORY_LINK: ACTIVE</div>
+    <div id="terminal"><div>[SYS] Intelligence core online. History tracking enabled.</div></div>
     
-    <div class="input-box">
-        <input type="text" id="user-input" placeholder="Type command..." onkeypress="if(event.key==='Enter') runPioneer()">
-        <button id="exec-btn" onclick="runPioneer()">EXECUTE</button>
+    <div class="input-area">
+        <input type="text" id="user-input" placeholder="Initiate command..." onkeypress="if(event.key==='Enter') runPioneer()">
+        <button onclick="runPioneer()">EXECUTE</button>
     </div>
 
     <script>
-        // 1. Identify App
         puter.appID = 'app-ef8b285f-22db-406a-872e-eb912abac8d2';
 
-        const terminal = document.getElementById('terminal');
+        const term = document.getElementById('terminal');
+        
+        // --- THE MEMORY BANK ---
+        // This array keeps track of the "Mission Briefing" so PioneerX can relate prompts.
+        let chatHistory = [
+            { role: 'system', content: 'You are PioneerX, a strategic intelligence core. Your motto is "Pioneer doesn\'t know to rest." Use the provided web context to answer accurately. Relate new questions to previous parts of the conversation.' }
+        ];
 
-        function log(msg, role = "sys") {
+        function print(msg, role = "sys") {
             const div = document.createElement('div');
-            div.style.marginBottom = "8px";
+            div.style.marginBottom = "10px";
             div.innerHTML = `[${role.toUpperCase()}] ${msg}`;
             if(role === 'pioneer') div.className = 'pioneer-text';
-            terminal.appendChild(div);
-            terminal.scrollTop = terminal.scrollHeight;
+            term.appendChild(div);
+            term.scrollTop = term.scrollHeight;
             return div;
         }
 
@@ -44,42 +50,54 @@
             if (!query) return;
             
             input.value = '';
-            log(query, "user");
+            print(query, "user");
 
             try {
-                // Check Auth
+                // 1. Auth Check
                 if (!await puter.auth.isSignedIn()) {
-                    log("AUTH REQUIRED. OPENING PUTER LOGIN...", "sys");
+                    print("AUTH REQUIRED. OPENING LOGIN...", "sys");
                     await puter.auth.signIn();
                 }
 
-                // Fetch Context
-                log("SCRAPING LIVE CONTEXT...", "sys");
+                // 2. Search Logic (The Eyes)
+                print("SCRAPING LIVE CONTEXT...", "sys");
                 const searchRes = await fetch(`/api/chat?q=${encodeURIComponent(query)}`);
                 const searchData = await searchRes.json();
 
-                // Engage 120B Brain
-                log("ENGAGING 120B REASONING...", "sys");
-                const response = await puter.ai.chat(
-                    `Context: ${searchData.context}\n\nUser: ${query}`, 
-                    { model: 'openai/gpt-oss-120b', stream: true }
-                );
+                // 3. Update Memory with the new user query + web data
+                chatHistory.push({ 
+                    role: 'user', 
+                    content: `Context: ${searchData.context}\n\nQuestion: ${query}` 
+                });
 
-                let replyDiv = log("", "pioneer");
+                // 4. Engage 120B Brain (Sending the FULL history)
+                print("CONSULTING 120B MISSION LOG...", "sys");
+                const response = await puter.ai.chat(chatHistory, { 
+                    model: 'openai/gpt-oss-120b', 
+                    stream: true 
+                });
+
+                let replyDiv = print("", "pioneer");
                 let fullResponse = "<b>PIONEER:</b> ";
+                let rawTextOnly = ""; // For saving back to history
 
                 for await (const part of response) {
                     if (part && part.text) {
+                        rawTextOnly += part.text;
                         fullResponse += part.text.replaceAll('\n', '<br>');
                         replyDiv.innerHTML = fullResponse;
-                        terminal.scrollTop = terminal.scrollHeight;
+                        term.scrollTop = term.scrollHeight;
                     }
                 }
+
+                // 5. Finalize Memory: Add the AI's answer so it remembers for next time
+                chatHistory.push({ role: 'assistant', content: rawTextOnly });
+
             } catch (err) {
-                log(`CRITICAL_FAIL: ${err.message}`, "error");
+                print(`CRITICAL_FAIL: ${err.message}`, "error");
                 console.error(err);
             }
-        } // <--- This was likely the source of the extra or missing bracket!
+        }
     </script>
 </body>
 </html>
