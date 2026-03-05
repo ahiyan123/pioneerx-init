@@ -7,43 +7,68 @@ from dotenv import load_dotenv
 load_dotenv()
 app = FastAPI()
 
-# 1. Connect to OpenRouter
+# 1. Secure Connection to OpenRouter (Free Only)
+api_key = os.getenv("OPENROUTER_API_KEY")
 client = OpenAI(
-  base_url="https://openrouter.ai/api/v1",
-  api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key if api_key else "missing_key",
 )
 
 def get_live_web_context(query: str):
-    """The DuckDuckGo Add-on: Fetches real-time web data for $0."""
+    """The Pioneer Search: Scrapes the live web for current events."""
     try:
         with DDGS() as ddgs:
-            # We grab 3 results to keep it fast and free
-            results = [r for r in ddgs.text(query, max_results=3)]
-            return "\n".join([f"Source: {r['href']}\nInfo: {r['body']}" for r in results])
-    except Exception:
-        return "No live web data found."
+            # We use backend="auto" to get real search results, not just facts
+            results = ddgs.text(
+                query, 
+                region='wt-wt', 
+                safesearch='moderate', 
+                backend="auto", 
+                max_results=5
+            )
+            
+            if not results:
+                return "No live data found. Use your internal knowledge."
+            
+            # Combine the results into a single string for the AI to read
+            blob = ""
+            for r in results:
+                blob += f"\n---\nSource: {r['href']}\nTitle: {r['title']}\nInfo: {r['body']}"
+            return blob
+    except Exception as e:
+        print(f"Search Crash: {e}")
+        return "The web search is currently down. Use your internal knowledge."
 
 @app.get("/api/chat")
 async def chat(q: str = Query(..., description="The user's question")):
-    # A. Get real-time context for free
+    if api_key == "missing_key":
+        return {"reply": "Error: Please add your OPENROUTER_API_KEY to Vercel Settings."}
+
+    # A. Get real-time context
     web_context = get_live_web_context(q)
     
-    # B. Ask the AI (LOCKED TO FREE MODELS ONLY)
-    # Using 'openrouter/auto:free' ensures zero cost
-    response = client.chat.completions.create(
-        model="openrouter/auto:free", 
-        messages=[
-            {
-                "role": "system", 
-                "content": f"You are a highly Intelligent AI. Use this LIVE web data: {web_context}"
-            },
-            {"role": "user", "content": q}
-        ],
-        extra_headers={
-            "HTTP-Referer": "https://pioneer-ai.vercel.app", # Replace with your URL later
-            "X-Title": "Pioneer Intelligent AI",
+    # B. Generate the answer using a FREE model
+    try:
+        response = client.chat.completions.create(
+            model="openrouter/auto:free", 
+            messages=[
+                {
+                    "role": "system", 
+                    "content": f"You are a highly Intelligent AI. Use this LIVE web data to answer the user accurately: {web_context}"
+                },
+                {"role": "user", "content": q}
+            ],
+            extra_headers={
+                "HTTP-Referer": "https://pioneer-ai.vercel.app",
+                "X-Title": "Pioneer Intelligent AI",
+            }
+        )
+        return {
+            "reply": response.choices[0].message.content,
+            "sources": "Live Web Data utilized."
         }
-    )
+    except Exception as e:
+        return {"reply": f"The Brain is struggling: {str(e)}"}
     
     return {
         "reply": response.choices[0].message.content,
