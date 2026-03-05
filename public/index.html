@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>PioneerX Sanctuary | GPT-OSS 120B</title>
+    <title>PioneerX Sanctuary | 120B Core</title>
     <script src="https://js.puter.com/v2/"></script>
     <style>
         body { background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; padding: 20px; margin: 0; }
@@ -14,16 +14,16 @@
     </style>
 </head>
 <body>
-    <div style="font-size: 0.8em; opacity: 0.7;">PIONEER_STATION // ID: app-ef8b285f... // CORE: 120B</div>
+    <div style="font-size: 0.8em; opacity: 0.7;">PIONEER_STATION // ID: app-ef8b285f...</div>
     <div id="terminal"><div>[SYS] PioneerX Sanctuary Online. Awaiting command...</div></div>
     
     <div class="input-box">
         <input type="text" id="user-input" placeholder="Type command..." onkeypress="if(event.key==='Enter') runPioneer()">
-        <button onclick="runPioneer()">EXECUTE</button>
+        <button id="exec-btn" onclick="runPioneer()">EXECUTE</button>
     </div>
 
     <script>
-        // Set App Identity
+        // 1. Identify App
         puter.appID = 'app-ef8b285f-22db-406a-872e-eb912abac8d2';
 
         const terminal = document.getElementById('terminal');
@@ -41,9 +41,45 @@
         async function runPioneer() {
             const input = document.getElementById('user-input');
             const query = input.value;
-            if
+            if (!query) return;
+            
+            input.value = '';
+            log(query, "user");
+
+            try {
+                // Check Auth
+                if (!await puter.auth.isSignedIn()) {
+                    log("AUTH REQUIRED. OPENING PUTER LOGIN...", "sys");
+                    await puter.auth.signIn();
+                }
+
+                // Fetch Context
+                log("SCRAPING LIVE CONTEXT...", "sys");
+                const searchRes = await fetch(`/api/chat?q=${encodeURIComponent(query)}`);
+                const searchData = await searchRes.json();
+
+                // Engage 120B Brain
+                log("ENGAGING 120B REASONING...", "sys");
+                const response = await puter.ai.chat(
+                    `Context: ${searchData.context}\n\nUser: ${query}`, 
+                    { model: 'openai/gpt-oss-120b', stream: true }
+                );
+
+                let replyDiv = log("", "pioneer");
+                let fullResponse = "<b>PIONEER:</b> ";
+
+                for await (const part of response) {
+                    if (part && part.text) {
+                        fullResponse += part.text.replaceAll('\n', '<br>');
+                        replyDiv.innerHTML = fullResponse;
+                        terminal.scrollTop = terminal.scrollHeight;
+                    }
+                }
+            } catch (err) {
+                log(`CRITICAL_FAIL: ${err.message}`, "error");
+                console.error(err);
             }
-        }
+        } // <--- This was likely the source of the extra or missing bracket!
     </script>
 </body>
 </html>
