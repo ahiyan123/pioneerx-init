@@ -1,22 +1,25 @@
-/**
- * PIONEERX UNIFIED COMMAND CORE
- * [SYSTEM STATUS]: ONLINE
- * [LOGIC]: SPEECH-TO-TEXT + ACCENT-MIRRORING TTS
- */
-
 const PioneerVoice = {
-    recognition: new (window.webkitSpeechRecognition || window.speechRecognition)(),
+    recognition: null,
     synth: window.speechSynthesis,
     isListening: false,
     detectedAccent: 'en-US',
 
     init() {
+        try {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            this.recognition = new SpeechRecognition();
+            console.log("[PIONEERX] Speech Engine Initialized.");
+        } catch (e) {
+            alert("Critical: Your browser does not support Speech Recognition.");
+            return;
+        }
+
         this.recognition.continuous = false;
         this.recognition.interimResults = false;
 
-        // --- THE EAR: SPEECH TO TEXT ---
+        // --- 1. THE EAR (Detection) ---
         this.recognition.onstart = () => {
-            this.isListening = true;
+            console.log("[PIONEERX] Mic is now HOT.");
             this.updateUI("LISTENING...", true);
         };
 
@@ -24,90 +27,67 @@ const PioneerVoice = {
             const transcript = event.results[0][0].transcript;
             this.detectedAccent = event.results[0][0].lang || 'en-US';
             
-            // Sync detected accent to UI
-            const accentDisplay = document.getElementById('display-accent');
-            if(accentDisplay) accentDisplay.innerText = this.detectedAccent.toUpperCase();
+            console.log(`[PIONEERX] Heard: ${transcript} (Accent: ${this.detectedAccent})`);
             
+            // UI SYNC
             const inputField = document.getElementById('pioneer-input');
             if(inputField) inputField.value = transcript;
 
             this.logToTerminal(`VOICE_IN: ${transcript}`, 'user-msg');
-            
-            // AUTO-EXECUTE COMMAND
             this.executeCommand(transcript);
+        };
+
+        this.recognition.onerror = (event) => {
+            console.error("[PIONEERX] Recognition Error:", event.error);
+            this.logToTerminal(`ERROR: ${event.error}`, 'system-msg');
         };
 
         this.recognition.onend = () => {
             this.isListening = false;
             this.updateUI("SYSTEM LISTEN", false);
         };
-
-        // Pre-load voices to ensure Mirror Protocol is ready
-        this.synth.getVoices();
     },
 
     toggleMic() {
-        // [FIX]: Security unlock for audio engine on first click
+        // Unlock Audio Context
         if (this.synth.speaking) this.synth.cancel();
-
+        
         if (!this.isListening) {
-            // "Silent Wakeup" - enables the voice engine for the upcoming response
-            const wakeup = new SpeechSynthesisUtterance("");
-            this.synth.speak(wakeup);
-            
+            console.log("[PIONEERX] Attempting to start Mic...");
             try {
                 this.recognition.start();
-            } catch (e) {
-                this.logToTerminal("ERROR: MIC_ALREADY_ACTIVE", "system-msg");
-            }
+            } catch (e) { console.error("Mic start failed:", e); }
         } else {
             this.recognition.stop();
         }
     },
 
-    // --- THE VOICE: MIRROR PROTOCOL ---
+    // --- 2. THE VOICE (Mirroring) ---
     speakResponse(text) {
-        this.synth.cancel(); // Stop any pending speech
+        console.log(`[PIONEERX] Attempting to speak: ${text}`);
+        this.synth.cancel();
         
         const utterance = new SpeechSynthesisUtterance(text);
         const voices = this.synth.getVoices();
 
-        // [LOGIC]: Identify voice matching the speaker's accent
-        let targetVoice = voices.find(v => v.lang === this.detectedAccent);
-        
-        // Fallback to language group if regional accent isn't installed
-        if (!targetVoice) {
-            const baseLang = this.detectedAccent.split('-')[0];
-            targetVoice = voices.find(v => v.lang.startsWith(baseLang));
-        }
+        // Mirror Accent Logic
+        let targetVoice = voices.find(v => v.lang === this.detectedAccent) || 
+                          voices.find(v => v.lang.startsWith(this.detectedAccent.split('-')[0])) || 
+                          voices[0];
 
-        utterance.voice = targetVoice || voices[0];
-        utterance.rate = 0.9;  // Measured tactical speed
-        utterance.pitch = 1.0; 
+        utterance.voice = targetVoice;
+        utterance.rate = 0.9;
         
         this.synth.speak(utterance);
         this.logToTerminal(text, 'ai-msg');
     },
 
-    // --- UI & TERMINAL LOGISTICS ---
-    updateUI(text, active) {
-        const btnText = document.getElementById('mic-text');
-        const indicator = document.getElementById('mic-indicator');
-        const wave = document.getElementById('voice-wave');
-        
-        if(btnText) btnText.innerText = text;
-        if(active) {
-            if(indicator) indicator.classList.add('pulse-active');
-            if(wave) wave.classList.remove('hidden');
-        } else {
-            if(indicator) indicator.classList.remove('pulse-active');
-            if(wave) wave.classList.add('hidden');
-        }
-    },
-
     logToTerminal(msg, type) {
         const stream = document.getElementById('output-stream');
-        if(!stream) return;
+        if (!stream) {
+            console.error("CRITICAL: Element #output-stream not found in HTML!");
+            return;
+        }
         const p = document.createElement('p');
         p.className = type || 'system-msg';
         p.innerText = `> ${msg}`;
@@ -116,18 +96,14 @@ const PioneerVoice = {
     },
 
     async executeCommand(cmd) {
-        /**
-         * LINKING TO AI CORE:
-         * Replace the mock response with your 120B / Puter.js fetch logic.
-         */
+        // Mock AI Delay
         setTimeout(() => {
-            const response = "PioneerX: Command processed. Mirror Protocol online. All systems are nominal.";
-            this.speakResponse(response);
-        }, 600);
+            this.speakResponse("PioneerX Sanctuary is standing by. All signals verified.");
+        }, 500);
     }
 };
 
-// INITIALIZE
+// Start the engine
 PioneerVoice.init();
 
 // Ensure voices load correctly on all browsers
