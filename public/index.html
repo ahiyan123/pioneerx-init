@@ -21,6 +21,14 @@
     <div class="input-area">
         <input type="text" id="user-input" placeholder="Initiate command..." onkeypress="if(event.key==='Enter') runPioneer()">
         <button onclick="runPioneer()">EXECUTE</button>
+        <button onclick="PioneerVoice.toggleMic()" id="mic-btn" class="action-btn glass-btn">
+    <div id="mic-indicator" class="mic-dot"></div>
+    <span id="mic-text">SYSTEM LISTEN</span>
+</button>
+
+<div class="status-subtext">
+    ACCENT: <span id="display-accent" style="color: var(--accent-blue);">DETECTING...</span>
+</div>
     </div>
 
     <script>
