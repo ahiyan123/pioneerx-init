@@ -1,3 +1,8 @@
+/**
+ * PIONEERX INTEGRATED CORE 
+ * [LOGIC]: SPEECH-TO-TEXT -> PUTER AI -> MIRROR-TTS
+ */
+
 const PioneerVoice = {
     recognition: null,
     synth: window.speechSynthesis,
@@ -5,21 +10,19 @@ const PioneerVoice = {
     detectedAccent: 'en-US',
 
     init() {
-        try {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            this.recognition = new SpeechRecognition();
-            console.log("[PIONEERX] Speech Engine Initialized.");
-        } catch (e) {
-            alert("Critical: Your browser does not support Speech Recognition.");
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            this.logToTerminal("CRITICAL: Browser Speech API not supported.", "system-msg");
             return;
         }
 
+        this.recognition = new SpeechRecognition();
         this.recognition.continuous = false;
         this.recognition.interimResults = false;
 
-        // --- 1. THE EAR (Detection) ---
+        // --- 1. THE EAR (Listen) ---
         this.recognition.onstart = () => {
-            console.log("[PIONEERX] Mic is now HOT.");
+            this.isListening = true;
             this.updateUI("LISTENING...", true);
         };
 
@@ -27,19 +30,10 @@ const PioneerVoice = {
             const transcript = event.results[0][0].transcript;
             this.detectedAccent = event.results[0][0].lang || 'en-US';
             
-            console.log(`[PIONEERX] Heard: ${transcript} (Accent: ${this.detectedAccent})`);
+            this.logToTerminal(`YOU: ${transcript}`, 'user-msg');
             
-            // UI SYNC
-            const inputField = document.getElementById('pioneer-input');
-            if(inputField) inputField.value = transcript;
-
-            this.logToTerminal(`VOICE_IN: ${transcript}`, 'user-msg');
+            // Send captured voice text directly to AI
             this.executeCommand(transcript);
-        };
-
-        this.recognition.onerror = (event) => {
-            console.error("[PIONEERX] Recognition Error:", event.error);
-            this.logToTerminal(`ERROR: ${event.error}`, 'system-msg');
         };
 
         this.recognition.onend = () => {
@@ -49,45 +43,59 @@ const PioneerVoice = {
     },
 
     toggleMic() {
-        // Unlock Audio Context
         if (this.synth.speaking) this.synth.cancel();
-        
+
         if (!this.isListening) {
-            console.log("[PIONEERX] Attempting to start Mic...");
+            // Wake up audio engine (Security bypass)
+            this.synth.speak(new SpeechSynthesisUtterance(""));
             try {
                 this.recognition.start();
-            } catch (e) { console.error("Mic start failed:", e); }
+            } catch (e) { console.error(e); }
         } else {
             this.recognition.stop();
         }
     },
 
-    // --- 2. THE VOICE (Mirroring) ---
+    // --- 2. THE BRAIN (Puter.js Integration) ---
+    async executeCommand(cmd) {
+        this.logToTerminal("THINKING...", "system-msg");
+        
+        try {
+            // LIVE AI CALL - No Mocks. Uses Puter's default 120B-class models.
+            const response = await puter.ai.chat(cmd);
+            const responseText = response.toString();
+
+            // Send result to the voice mouth
+            this.speakResponse(responseText);
+
+        } catch (error) {
+            console.error("Puter AI Error:", error);
+            this.speakResponse("Connection to the strategic core failed. Check network.");
+        }
+    },
+
+    // --- 3. THE MOUTH (Mirror Accent TTS) ---
     speakResponse(text) {
-        console.log(`[PIONEERX] Attempting to speak: ${text}`);
         this.synth.cancel();
         
         const utterance = new SpeechSynthesisUtterance(text);
         const voices = this.synth.getVoices();
 
-        // Mirror Accent Logic
+        // MIRROR PROTOCOL: Target the voice matching your accent
         let targetVoice = voices.find(v => v.lang === this.detectedAccent) || 
                           voices.find(v => v.lang.startsWith(this.detectedAccent.split('-')[0])) || 
                           voices[0];
 
         utterance.voice = targetVoice;
-        utterance.rate = 0.9;
-        
+        utterance.rate = 0.95; 
+
         this.synth.speak(utterance);
         this.logToTerminal(text, 'ai-msg');
     },
 
     logToTerminal(msg, type) {
         const stream = document.getElementById('output-stream');
-        if (!stream) {
-            console.error("CRITICAL: Element #output-stream not found in HTML!");
-            return;
-        }
+        if(!stream) return;
         const p = document.createElement('p');
         p.className = type || 'system-msg';
         p.innerText = `> ${msg}`;
@@ -95,18 +103,11 @@ const PioneerVoice = {
         stream.scrollTop = stream.scrollHeight;
     },
 
-    async executeCommand(cmd) {
-        // Mock AI Delay
-        setTimeout(() => {
-            this.speakResponse("PioneerX Sanctuary is standing by. All signals verified.");
-        }, 500);
+    updateUI(text, active) {
+        const btnText = document.getElementById('mic-text');
+        if(btnText) btnText.innerText = text;
     }
 };
 
-// Start the engine
+// Start System
 PioneerVoice.init();
-
-// Ensure voices load correctly on all browsers
-window.speechSynthesis.onvoiceschanged = () => {
-    console.log("[PIONEERX] Tactical Voice Engine: RE-SYNCED");
-};
