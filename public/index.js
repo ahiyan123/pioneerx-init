@@ -123,13 +123,26 @@ const PioneerVoice = {
     }
 },
 
-    logToTerminal(msg, type) {
-        const stream = document.getElementById('output-stream');
-        const p = document.createElement('p');
-        p.className = type;
-        p.innerText = `> ${msg}`;
-        stream.appendChild(p);
-        stream.scrollTop = stream.scrollHeight;
-    }
+   logToTerminal(msg, type) {
+    const stream = document.getElementById('output-stream');
+    if (!stream) return;
+
+    const p = document.createElement('p');
+    
+    // 1. Assign the Class (Critical for the PDF Filter)
+    p.className = type; // Expects 'user-msg', 'ai-msg', or 'system-msg'
+    
+    // 2. Add visual prefixes for the UI
+    let prefix = "> ";
+    if (type === 'user-msg') prefix = "👤 USER: ";
+    if (type === 'ai-msg') prefix = "🤖 PIONEER: ";
+    if (type === 'system-msg') prefix = "⚙️ ";
+
+    p.innerText = `${prefix}${msg}`;
+    
+    // 3. Append and Auto-Scroll
+    stream.appendChild(p);
+    stream.scrollTop = stream.scrollHeight;
+}
 };
 PioneerVoice.init();
