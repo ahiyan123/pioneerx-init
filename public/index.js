@@ -60,19 +60,26 @@ const PioneerVoice = {
         doc.setFont("courier", "bold");
         doc.text("PIONEERX STRATEGIC AUDIT", 15, 20);
 
-        entries.forEach((el) => {
-            const isUser = el.classList.contains('user-msg');
-            const cleanText = el.innerText.replace('[USER] ', '').replace('[PIONEER] ', '');
-            
-            doc.setFont("courier", isUser ? "bold" : "normal");
-            doc.setTextColor(isUser ? 100 : 0);
-            const lines = doc.splitTextToSize((isUser ? "Q: " : "A: ") + cleanText, 175);
-            
-            if (y + 10 > 280) { doc.addPage(); y = 20; }
-            doc.text(lines, 15, y);
-            y += (lines.length * 7) + 5;
-        });
-
+       entries.forEach((el) => {
+    const isUser = el.classList.contains('user-msg');
+    // CLEANER: Remove bold stars and HTML tags before putting them in the PDF
+    let cleanText = el.innerText.replace('[USER] ', '').replace('[PIONEER] ', '');
+    cleanText = cleanText.replace(/\*\*/g, ''); // Removes the ** symbols
+    
+    doc.setTextColor(isUser ? 100 : 0);
+    doc.setFont("courier", isUser ? "bold" : "normal");
+    
+    const prefix = isUser ? "Q: " : "A: ";
+    // INCREASE WIDTH: Set to 170 to give the text more room to breathe
+    const lines = doc.splitTextToSize(prefix + cleanText, 170);
+    
+    lines.forEach(line => {
+        if (y > 275) { doc.addPage(); y = 20; }
+        doc.text(line, 20, y);
+        y += 7; // Standard line height
+    });
+    y += 3; // Extra gap between messages
+});
         doc.save(`PioneerX_Strategic_Brief.pdf`);
     }
 };
