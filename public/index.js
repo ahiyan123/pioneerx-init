@@ -60,26 +60,36 @@ const PioneerVoice = {
         doc.setFont("courier", "bold");
         doc.text("PIONEERX STRATEGIC AUDIT", 15, 20);
 
-       entries.forEach((el) => {
-    const isUser = el.classList.contains('user-msg');
-    // CLEANER: Remove bold stars and HTML tags before putting them in the PDF
-    let cleanText = el.innerText.replace('[USER] ', '').replace('[PIONEER] ', '');
-    cleanText = cleanText.replace(/\*\*/g, ''); // Removes the ** symbols
-    
-    doc.setTextColor(isUser ? 100 : 0);
-    doc.setFont("courier", isUser ? "bold" : "normal");
-    
-    const prefix = isUser ? "Q: " : "A: ";
-    // INCREASE WIDTH: Set to 170 to give the text more room to breathe
-    const lines = doc.splitTextToSize(prefix + cleanText, 170);
-    
-    lines.forEach(line => {
-        if (y > 275) { doc.addPage(); y = 20; }
-        doc.text(line, 20, y);
-        y += 7; // Standard line height
-    });
-    y += 3; // Extra gap between messages
-});
+     elements.forEach((el) => {
+            const isUser = el.classList.contains('user-msg');
+            
+            // 1. CLEANING: Remove UI tags and problematic formatting
+            let cleanText = el.innerText.replace('[USER] ', '').replace('[PIONEER] ', '');
+            cleanText = cleanText.replace(/\*\*/g, ''); // Removes bold markdown that breaks width
+            
+            // 2. STYLING: Differentiate User vs AI
+            doc.setTextColor(isUser ? 100 : 0);
+            doc.setFont("courier", isUser ? "bold" : "normal");
+            
+            // 3. SPACING LOGIC: 
+            // We set the width to 165 (leaving 45mm of margin total) 
+            // to stop the "squeezed" look.
+            const prefix = isUser ? "QUESTION: " : "STRATEGY: ";
+            const lines = doc.splitTextToSize(prefix + cleanText, 165);
+            
+            // 4. RENDERING: Draw each line with a fixed margin
+            lines.forEach(line => {
+                if (y > 275) { 
+                    doc.addPage(); 
+                    y = 25; // Reset Y for new page
+                }
+                // We start at X=22 to give it a nice left margin
+                doc.text(line, 22, y);
+                y += 8; // Line height: prevents "squeezed" vertical lines
+            });
+            
+            y += 4; // Gap between different dialogue blocks
+        });
         doc.save(`PioneerX_Strategic_Brief.pdf`);
     }
 };
