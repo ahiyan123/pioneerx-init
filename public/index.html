@@ -17,47 +17,42 @@
 </head>
 <body>
     <div style="font-size: 0.8em; opacity: 0.6; margin-bottom: 5px;">PIONEER_OS [v2.1.0] // MEMORY_LINK: ACTIVE</div>
-    <div id="terminal"><div>[SYS] Intelligence core online. History tracking enabled.</div></div>
+    
+    <div id="terminal">
+        <div class="system-msg">[SYS] Intelligence core online. History tracking enabled.</div>
+    </div>
     
     <div class="input-area">
         <input type="text" id="user-input" placeholder="Initiate command..." onkeypress="if(event.key==='Enter') runPioneer()">
         <button onclick="runPioneer()">EXECUTE</button>
-        <button onclick="PioneerVoice.toggleMic()" id="mic-btn" class="action-btn glass-btn">
-    <button onclick="PioneerVoice.toggleMic()">
-    <span id="mic-text">SYSTEM LISTEN</span>
-</button>
-     <button id="pioneer-share-btn" onclick="PioneerVoice.shareReport()" class="share-btn">
-            SHARE TO WHATSAPP
+        
+        <button onclick="PioneerVoice.toggleMic()">
+            <span id="mic-text">SYSTEM LISTEN</span>
         </button>
+        <button onclick="PioneerVoice.shareReport()">PDF REPORT</button>
     </div>
-</div>
 
-<div id="output-stream" class="terminal-style"></div>
-</button>
-
-<div class="status-subtext">
-    ACCENT: <span id="display-accent" style="color: var(--accent-blue);">DETECTING...</span>
-</div>
+    <div class="status-subtext" style="margin-top: 10px; font-size: 0.7em;">
+        VALUE: Pioneer doesn't know to rest. | ACCENT: <span id="display-accent">EN-US</span>
     </div>
 
     <script>
-      puter.appID = 'app-ef8b285f-22db-406a-872e-eb912abac8d2';
+        puter.appID = 'app-ef8b285f-22db-406a-872e-eb912abac8d2';
 
         const term = document.getElementById('terminal');
         let chatHistory = [
             { role: 'system', content: 'You are PioneerX, a strategic intelligence core. Your motto is "Pioneer doesn\'t know to rest." Relate new questions to previous parts of the conversation.' }
         ];
 
-        // --- UPDATED PRINT FUNCTION ---
-        // This now adds classes so the PDF engine can see them
+        // --- THE UNIFIED PRINT ENGINE ---
         function print(msg, role = "sys") {
             const div = document.createElement('div');
             div.style.marginBottom = "10px";
             
-            // Assign classes for the PDF Engine
+            // Critical: Classes for the PDF Engine to find the text
             if(role === 'user') div.className = 'user-msg';
-            if(role === 'pioneer') div.className = 'ai-msg pioneer-text';
-            if(role === 'sys' || role === 'error') div.className = 'system-msg';
+            else if(role === 'pioneer') div.className = 'ai-msg pioneer-text';
+            else div.className = 'system-msg';
 
             div.innerHTML = `[${role.toUpperCase()}] ${msg}`;
             term.appendChild(div);
@@ -65,22 +60,23 @@
             return div;
         }
 
+        // --- THE EXECUTION CORE ---
         async function runPioneer() {
             const input = document.getElementById('user-input');
             const query = input.value;
             if (!query) return;
             
             input.value = '';
-            print(query, "user"); // This is now tagged 'user-msg'
+            print(query, "user");
 
             try {
                 if (!await puter.auth.isSignedIn()) {
                     print("AUTH REQUIRED. OPENING LOGIN...", "sys");
                     await puter.auth.signIn();
+                    return;
                 }
 
                 print("CONSULTING 120B MISSION LOG...", "sys");
-                
                 chatHistory.push({ role: 'user', content: query });
 
                 const response = await puter.ai.chat(chatHistory, { 
@@ -88,7 +84,7 @@
                     stream: true 
                 });
 
-                let replyDiv = print("", "pioneer"); // This is now tagged 'ai-msg'
+                let replyDiv = print("", "pioneer");
                 let fullResponse = "<b>PIONEER:</b> ";
                 let rawTextOnly = "";
 
@@ -103,13 +99,12 @@
 
                 chatHistory.push({ role: 'assistant', content: rawTextOnly });
                 
-                // Optional: Make AI speak
-                if(typeof PioneerVoice !== 'undefined') PioneerVoice.speak(rawTextOnly);
+                // Trigger Voice if PioneerVoice is loaded
+                if(window.PioneerVoice) PioneerVoice.speakResponse(rawTextOnly);
 
             } catch (err) {
                 print(`CRITICAL_FAIL: ${err.message}`, "error");
             }
-        }
         }
     </script>
     <script src="index.js"></script>
