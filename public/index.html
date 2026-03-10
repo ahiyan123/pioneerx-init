@@ -22,16 +22,15 @@
         <div class="system-msg">[SYS] Intelligence core online. History tracking enabled.</div>
     </div>
     
-    <div class="input-area">
-        <input type="text" id="user-input" placeholder="Initiate command..." onkeypress="if(event.key==='Enter') runPioneer()">
-        <button onclick="runPioneer()">EXECUTE</button>
-        
-        <button onclick="PioneerVoice.toggleMic()">
-            <span id="mic-text">SYSTEM LISTEN</span>
-        </button>
-        <button onclick="PioneerVoice.shareReport()">PDF REPORT</button>
-    </div>
-
+  <div class="input-area">
+    <input type="text" id="user-input" placeholder="Initiate command..." onkeypress="if(event.key==='Enter') runPioneer()">
+    <button onclick="runPioneer()">EXECUTE</button>
+    
+    <button onclick="PioneerVoice.toggleMic()">
+        <span id="mic-text">SYSTEM LISTEN</span>
+    </button>
+    <button onclick="PioneerVoice.shareReport()">SHARE REPORT</button>
+</div>
     <div class="status-subtext" style="margin-top: 10px; font-size: 0.7em;">
         VALUE: Pioneer doesn't know to rest. | ACCENT: <span id="display-accent">EN-US</span>
     </div>
