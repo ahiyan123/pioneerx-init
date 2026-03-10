@@ -5,144 +5,77 @@
 const PioneerVoice = {
     recognition: null,
     synth: window.speechSynthesis,
-    isListening: false, // Track state
-    detectedAccent: 'en-US',
+    isListening: false,
 
     init() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             this.recognition = new SpeechRecognition();
-            this.recognition.continuous = false;
-            this.recognition.interimResults = false;
-
             this.recognition.onstart = () => {
                 this.isListening = true;
-                this.updateUI("LISTENING...", true);
+                document.getElementById('mic-text').innerText = "LISTENING...";
             };
-
             this.recognition.onresult = (e) => {
                 const transcript = e.results[0][0].transcript;
-                this.logToTerminal(transcript, 'user-msg');
-                this.executeCommand(transcript);
+                document.getElementById('user-input').value = transcript;
+                window.runPioneer(); // Trigger your HTML's AI logic
             };
-
             this.recognition.onend = () => {
                 this.isListening = false;
-                this.updateUI("SYSTEM LISTEN", false);
+                document.getElementById('mic-text').innerText = "SYSTEM LISTEN";
             };
-
-            this.recognition.onerror = (e) => {
-                this.logToTerminal(`MIC_ERROR: ${e.error}`, 'system-msg');
-                this.isListening = false;
-                this.updateUI("SYSTEM LISTEN", false);
-            };
-        }
-
-        // --- KEYBOARD SETUP ---
-        const inputField = document.getElementById('pioneer-input');
-        if (inputField) {
-            inputField.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && inputField.value.trim() !== "") {
-                    this.logToTerminal(inputField.value, 'user-msg');
-                    this.executeCommand(inputField.value);
-                    inputField.value = "";
-                }
-            });
         }
     },
 
-    // --- THE MISSING TRIGGER ---
     toggleMic() {
-        if (!this.recognition) return alert("Speech recognition not supported.");
-        
-        // 1. Clear any current speech
-        this.synth.cancel();
-
-        // 2. Start or Stop
-        if (!this.isListening) {
-            try {
-                this.recognition.start();
-            } catch (e) { console.error(e); }
-        } else {
-            this.recognition.stop();
-        }
+        if (!this.recognition) return alert("Mic not supported");
+        this.isListening ? this.recognition.stop() : this.recognition.start();
     },
 
-    async executeCommand(cmd) {
-        this.logToTerminal("CONSULTING_STRATEGY...", "system-msg");
-        try {
-            const response = await puter.ai.chat(cmd);
-            this.speakResponse(response.toString());
-        } catch (err) {
-            this.logToTerminal("ERROR: UPLINK_FAILED", "system-msg");
-        }
-    },
-
+    // --- THE MOUTH ---
     speakResponse(text) {
         this.synth.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        
-        // Set accent based on detection
-        utterance.lang = this.detectedAccent;
-        
         this.synth.speak(utterance);
-        this.logToTerminal(text, 'ai-msg');
     },
 
-    logToTerminal(msg, type) {
-        const stream = document.getElementById('output-stream');
-        if (!stream) return;
-        const p = document.createElement('p');
-        p.className = type;
-        let icon = type === 'user-msg' ? "👤 " : type === 'ai-msg' ? "🤖 " : "⚙️ ";
-        p.innerText = icon + msg;
-        stream.appendChild(p);
-        stream.scrollTop = stream.scrollHeight;
-    },
+    // --- THE PDF FIX ---
+    async shareReport() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Target the 'terminal' ID from your HTML
+        const termContainer = document.getElementById('terminal');
+        const entries = termContainer.querySelectorAll('.user-msg, .ai-msg');
 
-    // UI Helper for the Mic Button
-    updateUI(text, active) {
-        const btnText = document.getElementById('mic-text');
-        if(btnText) btnText.innerText = text;
-    },
+        if (entries.length === 0) {
+            alert("Pioneer: No data to export yet.");
+            return;
+        }
 
-  // Inside index.js
-async shareReport() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const termDiv = document.getElementById('terminal');
-    const entries = termDiv.querySelectorAll('.user-msg, .ai-msg');
+        let y = 40;
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, 210, 30, 'F');
+        doc.setTextColor(0, 255, 0);
+        doc.setFont("courier", "bold");
+        doc.text("PIONEERX STRATEGIC AUDIT", 15, 20);
 
-    if (entries.length === 0) {
-        alert("Pioneer: No text data found to export.");
-        return;
+        entries.forEach((el) => {
+            const isUser = el.classList.contains('user-msg');
+            const cleanText = el.innerText.replace('[USER] ', '').replace('[PIONEER] ', '');
+            
+            doc.setFont("courier", isUser ? "bold" : "normal");
+            doc.setTextColor(isUser ? 100 : 0);
+            const lines = doc.splitTextToSize((isUser ? "Q: " : "A: ") + cleanText, 175);
+            
+            if (y + 10 > 280) { doc.addPage(); y = 20; }
+            doc.text(lines, 15, y);
+            y += (lines.length * 7) + 5;
+        });
+
+        doc.save(`PioneerX_Strategic_Brief.pdf`);
     }
+};
 
-    let y = 40;
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, 210, 30, 'F');
-    doc.setTextColor(0, 255, 0);
-    doc.setFont("courier", "bold");
-    doc.text("PIONEERX STRATEGIC AUDIT", 15, 20);
-
-    entries.forEach((el) => {
-        const isUser = el.classList.contains('user-msg');
-        const cleanText = el.innerText.replace('[USER] ', '').replace('[PIONEER] ', '');
-        
-        doc.setTextColor(isUser ? 100 : 0);
-        doc.setFont("courier", isUser ? "bold" : "normal");
-        const lines = doc.splitTextToSize((isUser ? "Q: " : "A: ") + cleanText, 175);
-        
-        if (y + 10 > 280) { doc.addPage(); y = 20; }
-        doc.text(lines, 15, y);
-        y += (lines.length * 7) + 5;
-    });
-
-    doc.save(`PioneerX_Strategic_Report.pdf`);
-}
-
-    if (validEntries === 0) return alert("Pioneer: No conversation data found to export.");
-    doc.save(`PioneerX_Strategic_Report.pdf`);
-}
-
+// Initialize the Ear
 PioneerVoice.init();
