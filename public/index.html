@@ -23,8 +23,9 @@
         <input type="text" id="user-input" placeholder="Initiate command..." onkeypress="if(event.key==='Enter') runPioneer()">
         <button onclick="runPioneer()">EXECUTE</button>
         <button onclick="PioneerVoice.toggleMic()" id="mic-btn" class="action-btn glass-btn">
-    <div id="mic-indicator" class="mic-dot"></div>
+    <button onclick="PioneerVoice.toggleMic()">
     <span id="mic-text">SYSTEM LISTEN</span>
+</button>
      <button id="pioneer-share-btn" onclick="PioneerVoice.shareReport()" class="share-btn">
             SHARE TO WHATSAPP
         </button>
