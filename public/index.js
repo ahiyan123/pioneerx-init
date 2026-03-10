@@ -1,6 +1,6 @@
 /**
- * PIONEERX COMPREHENSIVE CORE (v4.0)
- * [INTEGRATION]: Text/Voice Input -> AI -> Multilingual TTS -> Per-Prompt Auto-Share
+ * PIONEERX COMPREHENSIVE CORE
+ * [FEATURES]: Text Input + Voice Input + Multilingual AI + Unified Share Button
  */
 
 const PioneerVoice = {
@@ -10,27 +10,36 @@ const PioneerVoice = {
     detectedAccent: 'en-US',
 
     init() {
-        // --- 1. ENGINES SETUP ---
+        // --- 1. SPEECH RECOGNITION (The Ear) ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             this.recognition = new SpeechRecognition();
             this.recognition.lang = navigator.language || 'en-US';
 
-            this.recognition.onstart = () => { this.isListening = true; this.updateUI("LISTENING...", true); };
+            this.recognition.onstart = () => { 
+                this.isListening = true; 
+                this.updateUI("LISTENING...", true); 
+            };
             this.recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 this.detectedAccent = event.results[0][0].lang;
                 this.logToTerminal(`USER: ${transcript}`, 'user-msg');
                 this.executeCommand(transcript);
             };
-            this.recognition.onend = () => { this.isListening = false; this.updateUI("SYSTEM LISTEN", false); };
+            this.recognition.onend = () => { 
+                this.isListening = false; 
+                this.updateUI("SYSTEM LISTEN", false); 
+            };
         }
 
+        // --- 2. TEXT PROMPT (The Keyboard) ---
         const inputField = document.getElementById('pioneer-input');
         if (inputField) {
             inputField.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && inputField.value.trim() !== "") {
                     const cmd = inputField.value;
+                    // Reset to system language for text inputs
+                    this.detectedAccent = navigator.language || 'en-US'; 
                     this.logToTerminal(`USER: ${cmd}`, 'user-msg');
                     inputField.value = ""; 
                     this.executeCommand(cmd);
@@ -47,15 +56,14 @@ const PioneerVoice = {
         } else { this.recognition.stop(); }
     },
 
-    // --- 2. BRAIN & MOUTH ---
     async executeCommand(cmd) {
-        this.logToTerminal("CONSULTING_PIONEER_120B...", "system-msg");
+        this.logToTerminal("PROCESSING...", "system-msg");
         try {
             const response = await puter.ai.chat(cmd);
             const responseText = response.toString();
             this.speakResponse(responseText);
         } catch (error) {
-            this.logToTerminal("ERROR: UPLINK_TIMEOUT", "system-msg");
+            this.logToTerminal("ERROR: UPLINK_LOST", "system-msg");
         }
     },
 
@@ -69,50 +77,42 @@ const PioneerVoice = {
         utterance.rate = 0.95;
         
         this.synth.speak(utterance);
-        
-        // Final Log with the Auto-Share trigger enabled
-        this.logToTerminal(text, 'ai-msg', true);
+        this.logToTerminal(text, 'ai-msg');
     },
 
-    // --- 3. THE UNIFIED LOGGER & SHARE ENGINE ---
-    logToTerminal(msg, type, showShare = false) {
+    // --- 3. THE UNIFIED SHARE BUTTON LOGIC ---
+    async shareReport() {
         const stream = document.getElementById('output-stream');
-        if(!stream) return;
-
-        const p = document.createElement('p');
-        p.className = type;
-        p.innerHTML = `> ${msg}`;
-        
-        if (showShare) {
-            // Create the individual share link for this specific response
-            const shareBtn = document.createElement('span');
-            shareBtn.innerHTML = ` <a href="#" style="color: #00ff00; font-size: 0.8em; text-decoration: none; border: 1px solid #00ff00; padding: 0 4px; margin-left: 10px; cursor: pointer;">SHARE</a>`;
-            shareBtn.onclick = (e) => {
-                e.preventDefault();
-                this.shareToWhatsApp(msg);
-            };
-            p.appendChild(shareBtn);
+        if(!stream || stream.innerText.trim() === "") {
+            alert("No data to share.");
+            return;
         }
 
-        stream.appendChild(p);
-        stream.scrollTop = stream.scrollHeight;
-    },
+        const timestamp = new Date().toLocaleString();
+        const fullContent = `*PIONEERX STRATEGIC REPORT [${timestamp}]*\n\n${stream.innerText}`;
 
-    async shareToWhatsApp(text) {
-        const timestamp = new Date().toLocaleTimeString();
-        const formattedText = `*PIONEERX REPORT [${timestamp}]*\n\n${text}`;
-        
+        // Try System Share (WhatsApp/Email/etc)
         if (navigator.share) {
             try {
-                await navigator.share({ title: 'Strategic Alert', text: formattedText });
-            } catch (err) { this.fallbackWhatsApp(formattedText); }
+                await navigator.share({ title: 'PioneerX Audit', text: fullContent });
+            } catch (err) { this.fallbackWhatsApp(fullContent); }
         } else {
-            this.fallbackWhatsApp(formattedText);
+            this.fallbackWhatsApp(fullContent);
         }
     },
 
     fallbackWhatsApp(text) {
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    },
+
+    logToTerminal(msg, type) {
+        const stream = document.getElementById('output-stream');
+        if(!stream) return;
+        const p = document.createElement('p');
+        p.className = type;
+        p.innerText = `> ${msg}`;
+        stream.appendChild(p);
+        stream.scrollTop = stream.scrollHeight;
     },
 
     updateUI(text, active) {
