@@ -41,21 +41,25 @@
     </div>
 
     <script>
-        puter.appID = 'app-ef8b285f-22db-406a-872e-eb912abac8d2';
+      puter.appID = 'app-ef8b285f-22db-406a-872e-eb912abac8d2';
 
         const term = document.getElementById('terminal');
-        
-        // --- THE MEMORY BANK ---
-        // This array keeps track of the "Mission Briefing" so PioneerX can relate prompts.
         let chatHistory = [
-            { role: 'system', content: 'You are PioneerX, a strategic intelligence core. Your motto is "Pioneer doesn\'t know to rest." Use the provided web context to answer accurately. Relate new questions to previous parts of the conversation.' }
+            { role: 'system', content: 'You are PioneerX, a strategic intelligence core. Your motto is "Pioneer doesn\'t know to rest." Relate new questions to previous parts of the conversation.' }
         ];
 
+        // --- UPDATED PRINT FUNCTION ---
+        // This now adds classes so the PDF engine can see them
         function print(msg, role = "sys") {
             const div = document.createElement('div');
             div.style.marginBottom = "10px";
+            
+            // Assign classes for the PDF Engine
+            if(role === 'user') div.className = 'user-msg';
+            if(role === 'pioneer') div.className = 'ai-msg pioneer-text';
+            if(role === 'sys' || role === 'error') div.className = 'system-msg';
+
             div.innerHTML = `[${role.toUpperCase()}] ${msg}`;
-            if(role === 'pioneer') div.className = 'pioneer-text';
             term.appendChild(div);
             term.scrollTop = term.scrollHeight;
             return div;
@@ -67,36 +71,26 @@
             if (!query) return;
             
             input.value = '';
-            print(query, "user");
+            print(query, "user"); // This is now tagged 'user-msg'
 
             try {
-                // 1. Auth Check
                 if (!await puter.auth.isSignedIn()) {
                     print("AUTH REQUIRED. OPENING LOGIN...", "sys");
                     await puter.auth.signIn();
                 }
 
-                // 2. Search Logic (The Eyes)
-                print("SCRAPING LIVE CONTEXT...", "sys");
-                const searchRes = await fetch(`/api/chat?q=${encodeURIComponent(query)}`);
-                const searchData = await searchRes.json();
-
-                // 3. Update Memory with the new user query + web data
-                chatHistory.push({ 
-                    role: 'user', 
-                    content: `Context: ${searchData.context}\n\nQuestion: ${query}` 
-                });
-
-                // 4. Engage 120B Brain (Sending the FULL history)
                 print("CONSULTING 120B MISSION LOG...", "sys");
+                
+                chatHistory.push({ role: 'user', content: query });
+
                 const response = await puter.ai.chat(chatHistory, { 
                     model: 'openai/gpt-oss-120b', 
                     stream: true 
                 });
 
-                let replyDiv = print("", "pioneer");
+                let replyDiv = print("", "pioneer"); // This is now tagged 'ai-msg'
                 let fullResponse = "<b>PIONEER:</b> ";
-                let rawTextOnly = ""; // For saving back to history
+                let rawTextOnly = "";
 
                 for await (const part of response) {
                     if (part && part.text) {
@@ -107,13 +101,15 @@
                     }
                 }
 
-                // 5. Finalize Memory: Add the AI's answer so it remembers for next time
                 chatHistory.push({ role: 'assistant', content: rawTextOnly });
+                
+                // Optional: Make AI speak
+                if(typeof PioneerVoice !== 'undefined') PioneerVoice.speak(rawTextOnly);
 
             } catch (err) {
                 print(`CRITICAL_FAIL: ${err.message}`, "error");
-                console.error(err);
             }
+        }
         }
     </script>
     <script src="index.js"></script>
