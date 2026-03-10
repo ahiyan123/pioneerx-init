@@ -50,97 +50,76 @@ const PioneerVoice = {
 
  async shareReport() {
     const stream = document.getElementById('output-stream');
-    
-    // 1. Check for data
-    if (!stream || stream.children.length === 0) {
-        alert("Pioneer: No conversation found to export.");
-        return;
-    }
-
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const timestamp = new Date().toLocaleString();
 
-    // --- PDF BRANDING ---
-    doc.setFillColor(0, 0, 0); 
-    doc.rect(0, 0, 210, 30, 'F');
-    doc.setTextColor(0, 255, 0); 
+    // --- PDF Header ---
+    doc.setFillColor(30, 30, 30);
+    doc.rect(0, 0, 210, 35, 'F');
+    doc.setTextColor(0, 255, 0);
     doc.setFont("courier", "bold");
     doc.setFontSize(18);
-    doc.text("PIONEERX STRATEGIC REPORT", 15, 20);
-
+    doc.text("PIONEERX STRATEGIC AUDIT", 15, 22);
     doc.setFontSize(10);
-    doc.setTextColor(150, 150, 150);
-    doc.text(`DATE: ${timestamp}`, 15, 40);
-    doc.text(`VALUE: Pioneer doesn't know to rest.`, 15, 45);
-    doc.setDrawColor(0, 255, 0);
-    doc.line(15, 50, 195, 50);
+    doc.text(`VALUE: Pioneer doesn't know to rest.`, 15, 30);
 
-    // --- TEXT EXTRACTION ---
-    let y = 60;
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(11);
+    // --- The Filtering Engine ---
+    let y = 50;
+    const messages = stream.querySelectorAll('p');
+    let hasData = false;
 
-    // Loop through each paragraph in the terminal
-    const entries = stream.querySelectorAll('p');
-    entries.forEach((entry) => {
-        let cleanLine = entry.innerText.replace(/> /g, "").trim();
+    messages.forEach((p) => {
+        // SKIP if it's a system log (ANALYZING, ERROR, etc.)
+        if (p.classList.contains('system-msg')) return;
+
+        hasData = true;
+        const isUser = p.classList.contains('user-msg');
         
-        // Skip system messages like "ANALYZING..."
-        if (cleanLine.includes("ANALYZING") || cleanLine.includes("CONSULTING")) return;
-
-        // Apply styling based on who spoke
-        if (entry.classList.contains('user-msg')) {
-            doc.setFont("courier", "bold");
-            cleanLine = `QUESTION: ${cleanLine.replace("USER:", "")}`;
-        } else {
-            doc.setFont("courier", "normal");
-            cleanLine = `STRATEGY: ${cleanLine.replace("AI:", "")}`;
-        }
-
-        const splitText = doc.splitTextToSize(cleanLine, 175);
+        // Format for the PDF
+        doc.setFont("courier", isUser ? "bold" : "normal");
+        doc.setTextColor(isUser ? 0 : 50, isUser ? 0 : 50, isUser ? 0 : 50);
         
-        // Check for page overflow
-        if (y + (splitText.length * 7) > 280) {
-            doc.addPage();
-            y = 20;
-        }
+        const label = isUser ? "QUESTION: " : "STRATEGY: ";
+        const cleanText = p.innerText.replace("👤 ", "").replace("🤖 ", "");
+        const wrappedText = doc.splitTextToSize(label + cleanText, 180);
 
-        doc.text(splitText, 15, y);
-        y += (splitText.length * 7) + 5; // Add space between entries
+        doc.text(wrappedText, 15, y);
+        y += (wrappedText.length * 7) + 5;
+
+        // New page if we run out of space
+        if (y > 270) { doc.addPage(); y = 20; }
     });
 
-    // --- EXPORT ---
+    if (!hasData) {
+        alert("No strategy data found to export.");
+        return;
+    }
+
+    // --- Final Step: Smart Export ---
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile && navigator.share) {
-        // On Mobile, we still use the share sheet for WhatsApp
-        const textForShare = stream.innerText;
-        await navigator.share({ title: 'PioneerX Report', text: textForShare });
+        // On mobile, just share the clean text to WhatsApp
+        let shareText = "PIONEERX REPORT:\n";
+        messages.forEach(p => { if(!p.classList.contains('system-msg')) shareText += p.innerText + "\n"; });
+        await navigator.share({ text: shareText });
     } else {
-        // On PC, download the cleaned PDF
-        doc.save(`PioneerX_Strategic_Audit.pdf`);
-        this.logToTerminal("CLEAN_PDF_DOWNLOADED", "system-msg");
+        // On PC, download the clean PDF
+        doc.save(`PioneerX_Strategic_Report.pdf`);
+        this.logToTerminal("CLEAN_REPORT_DOWNLOADED", "system-msg");
     }
 },
 
-   logToTerminal(msg, type) {
+  logToTerminal(msg, type) {
     const stream = document.getElementById('output-stream');
     if (!stream) return;
 
     const p = document.createElement('p');
+    p.className = type; // This MUST be 'user-msg', 'ai-msg', or 'system-msg'
     
-    // 1. Assign the Class (Critical for the PDF Filter)
-    p.className = type; // Expects 'user-msg', 'ai-msg', or 'system-msg'
-    
-    // 2. Add visual prefixes for the UI
-    let prefix = "> ";
-    if (type === 'user-msg') prefix = "👤 USER: ";
-    if (type === 'ai-msg') prefix = "🤖 PIONEER: ";
-    if (type === 'system-msg') prefix = "⚙️ ";
+    // Simple visual for the terminal UI
+    p.innerText = (type === 'user-msg' ? "👤 " : type === 'ai-msg' ? "🤖 " : "⚙️ ") + msg;
 
-    p.innerText = `${prefix}${msg}`;
-    
-    // 3. Append and Auto-Scroll
     stream.appendChild(p);
     stream.scrollTop = stream.scrollHeight;
 }
