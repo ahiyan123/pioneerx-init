@@ -48,38 +48,57 @@ const PioneerVoice = {
         this.logToTerminal(text, 'ai-msg');
     },
 
-    async shareReport() {
+   async shareReport() {
     const stream = document.getElementById('output-stream');
-    
-    // 1. Check if the stream exists and has content
     if (!stream || stream.innerText.trim().length < 5) {
-        this.logToTerminal("ERROR: NO_DATA_TO_EXPORT", "system-msg");
-        alert("Pioneer: Terminal is empty. Generate a strategy first.");
+        alert("Pioneer: No data found for report generation.");
         return;
     }
 
-    // 2. Format the content for WhatsApp (Clean up the terminal formatting)
     const rawText = stream.innerText;
     const timestamp = new Date().toLocaleString();
-    
-    // This makes the report look clean: [USER] instead of > USER
-    const formattedReport = `*PIONEERX STRATEGIC AUDIT*\n_Date: ${timestamp}_\n\n` + 
-                            rawText.replace(/> USER:/g, "👤 *USER:*")
-                                   .replace(/> /g, "🤖 *PIONEER:* ");
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    // 3. Execute Share
-    try {
-        if (navigator.share) {
-            await navigator.share({
-                title: 'PioneerX Strategic Briefing',
-                text: formattedReport
-            });
-        } else {
-            // Desktop/Old Browser Fallback
-            window.open(`https://wa.me/?text=${encodeURIComponent(formattedReport)}`, '_blank');
-        }
-    } catch (err) {
-        console.log("Share aborted by user.");
+    // --- CASE 1: MOBILE (WhatsApp/System Share) ---
+    if (isMobile && navigator.share) {
+        const formattedReport = `*PIONEERX STRATEGIC AUDIT*\n_Date: ${timestamp}_\n\n` + 
+                                rawText.replace(/> /g, "\n");
+        try {
+            await navigator.share({ title: 'PioneerX Audit', text: formattedReport });
+        } catch (err) { this.fallbackWhatsApp(formattedReport); }
+    } 
+    
+    // --- CASE 2: PC / WINDOWS (Direct PDF Download) ---
+    else {
+        this.logToTerminal("GENERATING_PDF_DOCUMENT...", "system-msg");
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // PDF Styling
+        doc.setFillColor(0, 0, 0); // Black Background Header
+        doc.rect(0, 0, 210, 30, 'F');
+        
+        doc.setTextColor(0, 255, 0); // Pioneer Green
+        doc.setFont("courier", "bold");
+        doc.setFontSize(18);
+        doc.text("PIONEERX STRATEGIC AUDIT", 15, 20);
+        
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(10);
+        doc.text(`Timestamp: ${timestamp}`, 15, 40);
+        doc.text(`Motto: Pioneer doesn't know to rest.`, 15, 45);
+
+        // Content
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("courier", "normal");
+        const splitText = doc.splitTextToSize(rawText, 180);
+        doc.text(splitText, 15, 60);
+
+        // Save
+        const filename = `PioneerX_Report_${Date.now()}.pdf`;
+        doc.save(filename);
+        this.logToTerminal(`DOCUMENT_SAVED: ${filename}`, "system-msg");
     }
 },
 
