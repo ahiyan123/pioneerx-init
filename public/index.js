@@ -106,36 +106,48 @@ const PioneerVoice = {
         if(btnText) btnText.innerText = text;
     },
 
-    async shareReport() {
-        const stream = document.getElementById('output-stream');
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        const elements = stream.querySelectorAll('p');
-        let y = 50;
-        let validEntries = 0;
+   async shareReport() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // FIX: Look at 'terminal' instead of 'output-stream'
+    const termContainer = document.getElementById('terminal');
+    const elements = termContainer.querySelectorAll('.user-msg, .ai-msg');
+    
+    let y = 50;
+    let validEntries = 0;
 
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, 210, 30, 'F');
-        doc.setTextColor(0, 255, 0);
-        doc.setFont("courier", "bold");
-        doc.text("PIONEERX STRATEGIC AUDIT", 15, 20);
+    // Header Branding
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setTextColor(0, 255, 0);
+    doc.setFont("courier", "bold");
+    doc.text("PIONEERX STRATEGIC AUDIT", 15, 20);
 
-        elements.forEach((el) => {
-            if (el.classList.contains('system-msg')) return;
-            validEntries++;
-            const isUser = el.classList.contains('user-msg');
-            const cleanText = el.innerText.substring(2);
-            doc.setTextColor(isUser ? 100 : 0);
-            doc.setFont("courier", isUser ? "bold" : "normal");
-            const prefix = isUser ? "Q: " : "A: ";
-            const lines = doc.splitTextToSize(prefix + cleanText, 180);
-            doc.text(lines, 15, y);
-            y += (lines.length * 7) + 5;
-        });
+    elements.forEach((el) => {
+        validEntries++;
+        const isUser = el.classList.contains('user-msg');
+        
+        // Clean text by removing the [USER] or [PIONEER] tags
+        const cleanText = el.innerText.replace('[USER] ', '').replace('[PIONEER] ', '');
+        
+        doc.setTextColor(isUser ? 100 : 0);
+        doc.setFont("courier", isUser ? "bold" : "normal");
+        const prefix = isUser ? "Q: " : "A: ";
+        const lines = doc.splitTextToSize(prefix + cleanText, 180);
+        
+        // Page overflow check
+        if (y + (lines.length * 7) > 280) {
+            doc.addPage();
+            y = 20;
+        }
 
-        if (validEntries === 0) return alert("No text data found.");
-        doc.save(`Pioneer_Report_${Date.now()}.pdf`);
-    }
-};
+        doc.text(lines, 15, y);
+        y += (lines.length * 7) + 5;
+    });
+
+    if (validEntries === 0) return alert("Pioneer: No conversation data found to export.");
+    doc.save(`PioneerX_Strategic_Report.pdf`);
+}
 
 PioneerVoice.init();
