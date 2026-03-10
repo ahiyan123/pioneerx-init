@@ -49,16 +49,39 @@ const PioneerVoice = {
     },
 
     async shareReport() {
-        const content = document.getElementById('output-stream').innerText;
-        if (!content) return alert("Terminal empty.");
-        
-        const report = `*PIONEERX STRATEGIC AUDIT*\n\n${content}`;
+    const stream = document.getElementById('output-stream');
+    
+    // 1. Check if the stream exists and has content
+    if (!stream || stream.innerText.trim().length < 5) {
+        this.logToTerminal("ERROR: NO_DATA_TO_EXPORT", "system-msg");
+        alert("Pioneer: Terminal is empty. Generate a strategy first.");
+        return;
+    }
+
+    // 2. Format the content for WhatsApp (Clean up the terminal formatting)
+    const rawText = stream.innerText;
+    const timestamp = new Date().toLocaleString();
+    
+    // This makes the report look clean: [USER] instead of > USER
+    const formattedReport = `*PIONEERX STRATEGIC AUDIT*\n_Date: ${timestamp}_\n\n` + 
+                            rawText.replace(/> USER:/g, "👤 *USER:*")
+                                   .replace(/> /g, "🤖 *PIONEER:* ");
+
+    // 3. Execute Share
+    try {
         if (navigator.share) {
-            await navigator.share({ title: 'PioneerX Audit', text: report });
+            await navigator.share({
+                title: 'PioneerX Strategic Briefing',
+                text: formattedReport
+            });
         } else {
-            window.open(`https://wa.me/?text=${encodeURIComponent(report)}`, '_blank');
+            // Desktop/Old Browser Fallback
+            window.open(`https://wa.me/?text=${encodeURIComponent(formattedReport)}`, '_blank');
         }
-    },
+    } catch (err) {
+        console.log("Share aborted by user.");
+    }
+},
 
     logToTerminal(msg, type) {
         const stream = document.getElementById('output-stream');
