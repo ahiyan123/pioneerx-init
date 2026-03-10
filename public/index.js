@@ -48,71 +48,78 @@ const PioneerVoice = {
         this.logToTerminal(text, 'ai-msg');
     },
 
-   async shareReport() {
-    // 1. Target the terminal
+ async shareReport() {
     const stream = document.getElementById('output-stream');
     
-    // 2. Extract clean text (handles HTML and extra spaces)
-    const rawText = stream.innerText || stream.textContent;
-    const cleanText = rawText.trim();
-
-    // 3. Robust Data Validation
-    if (!cleanText || cleanText.length < 10) {
-        this.logToTerminal("CRITICAL: NO_CONTENT_TO_PDF", "system-msg");
-        alert("Pioneer: Please wait for the AI to finish or enter a prompt first.");
+    // 1. Check for data
+    if (!stream || stream.children.length === 0) {
+        alert("Pioneer: No conversation found to export.");
         return;
     }
 
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
     const timestamp = new Date().toLocaleString();
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    // --- CASE 1: MOBILE (WhatsApp/System) ---
-    if (isMobile && navigator.share) {
-        const formattedReport = `*PIONEERX STRATEGIC AUDIT*\n_Date: ${timestamp}_\n\n` + 
-                                cleanText.replace(/> /g, "\n");
-        try {
-            await navigator.share({ title: 'PioneerX Audit', text: formattedReport });
-        } catch (err) { this.fallbackWhatsApp(formattedReport); }
-    } 
-    
-    // --- CASE 2: PC/WINDOWS (Direct PDF Download) ---
-    else {
-        this.logToTerminal("INITIATING_PDF_ENGINE...", "system-msg");
+    // --- PDF BRANDING ---
+    doc.setFillColor(0, 0, 0); 
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setTextColor(0, 255, 0); 
+    doc.setFont("courier", "bold");
+    doc.setFontSize(18);
+    doc.text("PIONEERX STRATEGIC REPORT", 15, 20);
+
+    doc.setFontSize(10);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`DATE: ${timestamp}`, 15, 40);
+    doc.text(`VALUE: Pioneer doesn't know to rest.`, 15, 45);
+    doc.setDrawColor(0, 255, 0);
+    doc.line(15, 50, 195, 50);
+
+    // --- TEXT EXTRACTION ---
+    let y = 60;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(11);
+
+    // Loop through each paragraph in the terminal
+    const entries = stream.querySelectorAll('p');
+    entries.forEach((entry) => {
+        let cleanLine = entry.innerText.replace(/> /g, "").trim();
         
-        try {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
+        // Skip system messages like "ANALYZING..."
+        if (cleanLine.includes("ANALYZING") || cleanLine.includes("CONSULTING")) return;
 
-            // Professional Branding
-            doc.setFillColor(20, 20, 20); // Dark Header
-            doc.rect(0, 0, 210, 40, 'F');
-            
-            doc.setTextColor(0, 255, 0); // Pioneer Green
+        // Apply styling based on who spoke
+        if (entry.classList.contains('user-msg')) {
             doc.setFont("courier", "bold");
-            doc.setFontSize(22);
-            doc.text("PIONEERX STRATEGIC AUDIT", 15, 20);
-            
-            doc.setFontSize(10);
-            doc.text(`MOTTO: Pioneer doesn't know to rest.`, 15, 30);
-            doc.setTextColor(150, 150, 150);
-            doc.text(`TIMESTAMP: ${timestamp}`, 15, 35);
-
-            // The Data Body
-            doc.setTextColor(40, 40, 40);
+            cleanLine = `QUESTION: ${cleanLine.replace("USER:", "")}`;
+        } else {
             doc.setFont("courier", "normal");
-            doc.setFontSize(11);
-            
-            // Split text to fit page width
-            const splitText = doc.splitTextToSize(cleanText, 180);
-            doc.text(splitText, 15, 55);
-
-            // Final Export
-            doc.save(`PioneerX_Audit_${Date.now()}.pdf`);
-            this.logToTerminal("PDF_GENERATION_SUCCESSFUL", "system-msg");
-        } catch (error) {
-            console.error("PDF Error:", error);
-            alert("PDF Engine failed. Check if jsPDF library is loaded.");
+            cleanLine = `STRATEGY: ${cleanLine.replace("AI:", "")}`;
         }
+
+        const splitText = doc.splitTextToSize(cleanLine, 175);
+        
+        // Check for page overflow
+        if (y + (splitText.length * 7) > 280) {
+            doc.addPage();
+            y = 20;
+        }
+
+        doc.text(splitText, 15, y);
+        y += (splitText.length * 7) + 5; // Add space between entries
+    });
+
+    // --- EXPORT ---
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile && navigator.share) {
+        // On Mobile, we still use the share sheet for WhatsApp
+        const textForShare = stream.innerText;
+        await navigator.share({ title: 'PioneerX Report', text: textForShare });
+    } else {
+        // On PC, download the cleaned PDF
+        doc.save(`PioneerX_Strategic_Audit.pdf`);
+        this.logToTerminal("CLEAN_PDF_DOWNLOADED", "system-msg");
     }
 },
 
